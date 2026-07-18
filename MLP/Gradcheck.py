@@ -1,4 +1,6 @@
 import numpy as np
+import math
+
 class GradientsChecker:
     @staticmethod
     def check(model,x,y,eps=1e-7):
@@ -36,6 +38,8 @@ class GradientsChecker:
         diff=nominator/denom
 
         return diff
+
+   
         
 def check_grads(model,x,y):
     print("======LAUNCHING GRADEINTS CHECCKING========")
@@ -47,3 +51,36 @@ def check_grads(model,x,y):
         print("Wrong :Minor precision")
     else:
         print("Fianal Error : Check your implementation line by line")            
+
+
+
+class WarmupCosineSchedular:
+    def __init__(self,peak_lr,warmup_steps,total_steps,min_lr=0.0):
+        self.peak_lr=peak_lr
+        self.warmup_steps=warmup_steps
+        self.total_steps=total_steps
+        self.min_lr=min_lr
+
+        self.curr_step=0.0
+
+    def get_lr(self):
+        if self.curr_step<=self.warmup_steps:
+            if self.warmup_steps==0:
+                return self.peak_lr
+            return self.peak_lr*(self.curr_step/self.warmup_steps)
+        
+        deacy_steps=self.total_steps-self.warmup_steps
+        curr_decay_step=self.curr_step-self.warmup_steps
+        decay_ratio=curr_decay_step/deacy_steps
+
+
+        coef=0.5*(1.0+math.cos(math.pi * decay_ratio))
+
+        return self.min_lr+coef *(self.peak_lr-self.min_lr)
+    def step(self):
+        lr=self.get_lr()
+        self.curr_step+=1
+
+        return lr
+    
+    

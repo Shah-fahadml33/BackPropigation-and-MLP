@@ -1,5 +1,6 @@
 
 import numpy as np
+import math
 class SGD:
     def __init__(self,model,lr=0.01):
         self.model=model
@@ -106,3 +107,5 @@ class AdamW:
 
                 self.model.perams[key] -= self.lr * (self.weight_decay * self.model.perams[key] + (m_hat / (np.sqrt(v_hat) + self.eps)))
                 
+
+
