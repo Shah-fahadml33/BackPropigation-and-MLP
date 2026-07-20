@@ -7,12 +7,12 @@ class SGD:
         self.lr=lr
 
     def step(self):
-        for key in self.model.perams.keys():
-            self.model.perams[key]-=self.lr*self.model.grads[key]
+        for key in self.model.params.keys():
+            self.model.params[key]-=self.lr*self.model.grads[key]
         
-        # self.model.perams['w1']-=self.lr*self.model.grades['w1']
-        # self.model.perams['b1']-=self.lr*self.model.grades['b1']
-        # self.model.perams['w2']-=self.lr*self.model.grades['w2']
+        # self.model.params['w1']-=self.lr*self.model.grades['w1']
+        # self.model.params['b1']-=self.lr*self.model.grades['b1']
+        # self.model.params['w2']-=self.lr*self.model.grades['w2']
         # self.model.permasb2-=self.lr*self.model.grades['b2']
 
 
@@ -24,20 +24,20 @@ class RMSProp:
         self.eps=eps
         
         self.v={}
-        for key,value in self.model.perams.items():
+        for key,value in self.model.params.items():
             self.v[key]=np.zeros_like(value)
         # self.v_w1=np.zeros_like(model.w1)
         # self.v_b1=np.zeros_like(model.b1)
         # self.v_w2=np.zeros_like(model.w2)
         # self.v_b2=np.zeros_like(model.b2)
     def step(self):
-        for key in self.model.perams.keys():
+        for key in self.model.params.keys():
             self.v[key]=self.beta*self.v[key]+(1-self.v[key])*(self.model.grads[key]**2)
         # self.v_w1=self.beta*self.v_w1+(1-self.beta)*(self.model.grades['w1']**2)
         # self.v_b1=self.beta*self.v_b1+(1-self.beta)*(self.model.grades['b1']**2)
         # self.v_w2=self.beta*self.v_w2+(1-self.beta)*(self.model.grades['w2']**2)
         # self.v_b2=self.beta*self.v_b2+(1-self.beta)*(self.model.grades['b2']**2)
-        self.model.perams[key]-=self.lr*self.model.grads[key]/(np.sqrt(self.v[key])+self.eps)
+        self.model.params[key]-=self.lr*self.model.grads[key]/(np.sqrt(self.v[key])+self.eps)
         # self.model.w1-=self.lr*self.model.grades['w1']/(np.sqrt(self.v_w1)+self.eps)
         # self.model.b2-=self.lr*self.model.grades['b1']/(np.sqrt(self.v_b1)+self.eps)
         # self.model.w2-=self.lr*self.model.grades['w2']/(np.sqrt(self.v_w2)+self.eps)
@@ -57,7 +57,7 @@ class Adam:
         self.m={}
         self.v={}
 
-        for key,value in self.model.perams.items():
+        for key,value in self.model.params.items():
             self.m[key]=np.zeros_like(value)
             self.v[key]=np.zeros_like(value)
 
@@ -74,7 +74,7 @@ class Adam:
             m_hat=self.m[key]/(1-self.beta1**self.t)
             v_hat=self.v[key]/(1-self.beta2**self.t)
 
-            self.model.perams[key]-=self.lr*m_hat/(np.sqrt(v_hat)+self.eps)
+            self.model.params[key]-=self.lr*m_hat/(np.sqrt(v_hat)+self.eps)
 
 
 class AdamW:
@@ -90,12 +90,12 @@ class AdamW:
         self.v={}
         self.t=0
 
-        for key,value in self.model.perams.items():
+        for key,value in self.model.params.items():
             self.m[key]=np.zeros_like(value)
             self.v[key]=np.zeros_like(value)
-    def step(self):
+    def step(self,current_lr):
             self.t+=1
-            for key in self.model.perams.keys():
+            for key in self.model.params.keys():
                 grads=self.model.grads[key]
 
                 self.m[key]=self.beta1*self.m[key]+(1-self.beta1)*grads
@@ -105,7 +105,7 @@ class AdamW:
                 m_hat=self.m[key]/(1-self.beta1**self.t)
                 v_hat=self.v[key]/(1-self.beta2**self.t)
 
-                self.model.perams[key] -= self.lr * (self.weight_decay * self.model.perams[key] + (m_hat / (np.sqrt(v_hat) + self.eps)))
+                self.model.params[key] -= current_lr* (self.weight_decay * self.model.params[key] + (m_hat / (np.sqrt(v_hat) + self.eps)))
                 
 
 

@@ -4,21 +4,21 @@ import math
 class GradientsChecker:
     @staticmethod
     def check(model,x,y,eps=1e-7):
-        orignal_theta=model.get_perams_vector()
+        orignal_theta=model.get_params_vector()
         
         _=model.forward(x)
         ana_grades=model.backward(y)
         d_theta_ana=model.set_grads_vecter()
 
-        num_perams=orignal_theta.shape[0]
+        num_params=orignal_theta.shape[0]
         d_theta_num=np.zeros_like(orignal_theta)
 
         def evaluate_loss(theta_vec):
-            model.set_perams_from_vector(theta_vec)
+            model.set_params_from_vector(theta_vec)
             pred=model.forward(x)
             return model.compute_loss(pred,y)
 
-        for i in range(num_perams):
+        for i in range(num_params):
             t_plus=np.copy(orignal_theta)
             t_plus[i]+=eps
             loss_plus=evaluate_loss(t_plus)
@@ -29,7 +29,7 @@ class GradientsChecker:
 
             d_theta_num[i]=(loss_plus-loss_minus)/(2*eps)
             
-        model.set_perams_from_vector(orignal_theta)
+        model.set_params_from_vector(orignal_theta)
         nominator=np.linalg.norm(d_theta_num-d_theta_ana)
         denom=np.linalg.norm(d_theta_num)+np.linalg.norm(d_theta_ana)
 
