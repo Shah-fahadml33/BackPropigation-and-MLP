@@ -1,11 +1,13 @@
 import numpy as np
 
 class MLP:
-    def __init__(self,input_dim,hidden_dim,out_dim=1):
+    def __init__(self,input_dim,hidden_dim,out_dim=1,lambda_1=0.0,lambda_2=0.0):
         self.input_dim=input_dim
         self.hidden_dim=hidden_dim
         self.out_dim=out_dim
 
+        self.lambda_1=lambda_1
+        self.lambda_2=lambda_2
         self.params={}
         self.params['w1']=np.random.randn(input_dim,hidden_dim)*np.sqrt(2/input_dim)
         self.params['b1']=np.zeros((1,hidden_dim))
@@ -14,6 +16,9 @@ class MLP:
 
 
         self.grads={}
+    def relu(self,z):
+        return np.max(0,z)
+    
     def sigmoid(self,z):
         clip_z=np.clip(z,-500,500)
         return 1/(1+np.exp(-clip_z))
@@ -31,6 +36,18 @@ class MLP:
         N=y.shape[0]
         eps=1e-15
         loss=-(1.0/N)*np.sum(y*np.log(y_hat+eps)+(1.0-y)*np.log(1.0-y_hat+eps))
+
+        l1_panely=0.0
+        l2_panelty=0.0
+
+        for key,value in self.params.item():
+            if 'b' in key.lower():
+                continue
+            if self.lambda_1>0:
+                l1_panely+=np.sum(np.abs(value))
+            if self.lambda_2>0:
+                l2_panelty+=np.sum(np.square(value))
+        total_loss=loss+(self.lambda_1*l1_panely)+((self.lambda_2/2.0)*l2_panelty)
         return loss
 
     def backward(self,y):
@@ -43,7 +60,12 @@ class MLP:
         dz1=da1* self.a1 *(1.0-self.a1)
         dw1=np.dot(self.X.T,dz1)/n
         db1=np.sum(dz1,axis=0,keepdims=True)/n
-
+        if self.lambda_1>0:
+            dw1+=self.lambda_1*np.sign(self.params['w1'])
+            dw2+=self.lambda_1*np.sign(self.params['w2'])
+        if self.lambda_2>0:
+            dw1+=self.lambda_2*self.params['w1']
+            dw2+=self.lambda_2*self.params['w2']
         self.grads['w1']=dw1
         self.grads['b1']=db1
         self.grads['w2']=dw2
