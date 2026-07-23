@@ -1,13 +1,17 @@
 import numpy as np
 
 class MLP:
-    def __init__(self,input_dim,hidden_dim,out_dim=1,lambda_1=0.0,lambda_2=0.0):
+    def __init__(self,input_dim,hidden_dim,out_dim=1,lambda_1=0.0,lambda_2=0.0,dropout=False,prob=0.0):
         self.input_dim=input_dim
         self.hidden_dim=hidden_dim
         self.out_dim=out_dim
+        self.dropout=dropout
+        self.prob=prob
 
         self.lambda_1=lambda_1
         self.lambda_2=lambda_2
+        self.mask=None
+
         self.params={}
         self.params['w1']=np.random.randn(input_dim,hidden_dim)*np.sqrt(2/input_dim)
         self.params['b1']=np.zeros((1,hidden_dim))
@@ -17,20 +21,29 @@ class MLP:
 
         self.grads={}
     def relu(self,z):
-        return np.max(0,z)
+        return np.maximum(0,z)
     
     def sigmoid(self,z):
         clip_z=np.clip(z,-500,500)
         return 1/(1+np.exp(-clip_z))
         
-    def forward(self,x):
+    def forward(self,x,training=True):
         self.X=x
         self.z1=np.dot(self.X,self.params['w1'])+self.params['b1']
         self.a1=self.sigmoid(self.z1)
+        self.dropout_active=training and self.dropout and self.prob>0
+        if self.dropout_active:
+                self.mask=(np.random.rand(*self.a1.shape)>self.prob).astype(float)
+    
+                self.a1=(self.a1*self.mask)/(1-self.prob)
+    
         self.z2=np.dot(self.a1,self.params['w2'])+self.params['b2']
         self.a2=self.sigmoid(self.z2)
 
+      
         return self.a2
+
+        
 
     def compute_loss(self,y_hat,y):
         N=y.shape[0]
@@ -40,7 +53,7 @@ class MLP:
         l1_panely=0.0
         l2_panelty=0.0
 
-        for key,value in self.params.item():
+        for key,value in self.params.items():
             if 'b' in key.lower():
                 continue
             if self.lambda_1>0:
@@ -48,7 +61,7 @@ class MLP:
             if self.lambda_2>0:
                 l2_panelty+=np.sum(np.square(value))
         total_loss=loss+(self.lambda_1*l1_panely)+((self.lambda_2/2.0)*l2_panelty)
-        return loss
+        return total_loss
 
     def backward(self,y):
         n=y.shape[0]
@@ -57,6 +70,8 @@ class MLP:
         db2=np.sum(dz2,axis=0,keepdims=True)/n
 
         da1=np.dot(dz2,self.params['w2'].T)
+        if self.dropout_active:
+            da1=da1*self.mask/(1-self.prob)
         dz1=da1* self.a1 *(1.0-self.a1)
         dw1=np.dot(self.X.T,dz1)/n
         db1=np.sum(dz1,axis=0,keepdims=True)/n
@@ -66,6 +81,8 @@ class MLP:
         if self.lambda_2>0:
             dw1+=self.lambda_2*self.params['w1']
             dw2+=self.lambda_2*self.params['w2']
+
+      
         self.grads['w1']=dw1
         self.grads['b1']=db1
         self.grads['w2']=dw2
@@ -93,74 +110,71 @@ class MLP:
             self.grads['w1'].ravel(),self.grads['b1'].ravel(),
             self.grads['w2'].ravel(),self.grads['b2'].ravel()
         ])
-    
 
-def train(model,x_train,y_train,epochs,batch_size=None,optimizer=None):
-    losses=[]
+    def zerograd(self):
+        if not self.grads:
+            return
+        for key in self.grads:
+            self.grads[key].fill(0)
+
+
+def train(model, x_train, y_train, epochs, optimizer, batch_size=None):
+    losses = []
+
+    m = x_train.shape[0]
+
     if batch_size is None:
-        for epoch in range(epochs):
-            preds=model.forward(x_train)
-            loss=model.compute_loss(preds,y_train)
-            losses.append(loss)
-            model.backward(y_train)
+        batch_size = m
+
+    for epoch in range(epochs):
+
+        indices = np.random.permutation(m)
+        x_shuffled = x_train[indices]
+        y_shuffled = y_train[indices]
+
+        epoch_loss = 0.0
+        num_batches = 0
+
+        for i in range(0, m, batch_size):
+
+            x_batch = x_shuffled[i:i + batch_size]
+            y_batch = y_shuffled[i:i + batch_size]
+
+            model.zerograd()
+
+            y_pred = model.forward(x_batch, training=True)
+
+            loss = model.compute_loss(y_pred, y_batch)
+
+            model.backward(y_batch)
+
             optimizer.step()
 
-            if epoch %100 ==0:
-                print(f"Epoch {epoch}  | Loss :  {loss}")
-        return losses
-    if batch_size:
-        m,n=x_train.shape
-        
-        for epoch in range(epochs):
-            num_batches=0
-            epoch_loss=0.0
-            indices=np.random.permutation(m)
-            x_shuffled=x_train[indices]
-            y_shuffled=y_train[indices]
-             
-            for i in range(0,m,batch_size):
-                x_batch=x_shuffled[i:i+batch_size]
-                y_batch=y_shuffled[i:i+batch_size]
+            epoch_loss += loss
+            num_batches += 1
 
-                pred=model.forward(x_batch)
-                loss=model.compute_loss(pred,y_batch)
-                epoch_loss+=loss
-                num_batches+=1
-                
-                model.backward()
-                optimizer.step()
-            losses.append(epoch_loss/num_batches)
-        if epoch % 100 == 0:
-            print(f"Epoch {epoch} | Loss: {epoch_loss/num_batches:.4f}")
-    return losses
-
-    
-def test(model,x_test,y_test,batch_size=None):
-    losses=[]
-    if batch_size is None:
-        preds=model.forward(x_test)
-        test_loss=model.compute_loss(preds,y_test)
-        losses.append(test_loss)
-
-        print(f"Test Loss is :{test_loss}")
-        return preds,losses
-    else:
-        m,n=x_test.shape
-        epoch_los=0.0
-        num_batches=0.0
-        prediction=[]
-        for i  in range(0,m,batch_size):
-            x_batch=x_test[i:i+batch_size]
-            y_batch=y_test[i:i+batch_size]
-
-            preds=model.forward(x_batch)
-            prediction.append(preds)
-            loss=model.compute_loss(preds,y_batch)
-
-            epoch_los+=loss
-            num_batches+=1
-        avg_loss=epoch_los/num_batches
+        avg_loss = epoch_loss / num_batches
         losses.append(avg_loss)
-        print(f"Test Loss is :{avg_loss}")
-        return preds,losses
 
+        if epoch % 100 == 0:
+            print(f"Epoch {epoch:4d} | Loss: {avg_loss:.6f}")
+
+    return losses  
+
+
+
+def test(model, x_test, y_test):
+    y_pred = model.forward(x_test, training=False)
+
+    loss = model.compute_loss(y_pred, y_test)
+
+    predictions = (y_pred >= 0.5).astype(int)
+
+    accuracy = np.mean(predictions == y_test)
+
+    return {
+        "loss": loss,
+        "accuracy": accuracy,
+        "predictions": predictions,
+        "probabilities": y_pred
+    }
